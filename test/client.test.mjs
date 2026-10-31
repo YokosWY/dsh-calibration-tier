@@ -132,13 +132,20 @@ test("只注册一条插槽，order=10，槽位正确", () => {
   assert.equal(env.registerCalls[0].cfg.name, "conversation.input.right");
 });
 
-test("悬停解释只在两个轮换格上：档位格、循环、对抗都不带 title", async () => {
+test("悬停解释只给轮换格与右键格：档位格、循环、根节点都不带 title", async () => {
   const tree = boot().render();
   await tick();
   for (const [i, child] of tree.children.entries()) {
     if (child.props && child.props.className && child.props.className.includes("dct-sep")) continue;
     const cls = String((child.props && child.props.className) || "");
     if (cls.includes("dct-routecell") || cls.includes("dct-agentcell")) continue; // 轮换格要说明「点一下切到哪」
+    if (cls.includes("dct-counter")) {
+      // v3.9.0：对抗格只加一句「右键设默认」，仍不许解释分级（对抗没有等级）
+      const title = String(child.props.title || "");
+      assert.match(title, /右键设默认/, "对抗格 title 要说明可右键设默认");
+      assert.equal(/轻|标准|严格|条数|分级/.test(title), false, "对抗格不许解释分级");
+      continue;
+    }
     assert.equal("title" in child.props, false, `第 ${i} 个子节点还带 title`);
   }
   assert.equal("title" in tree.props, false, "根节点还带 title");
@@ -675,4 +682,106 @@ test("样式：代理墨绿变量只定义一次，只打在代理格上", () =>
   assert.ok(CSS.includes("#24543f"), "代理取墨绿 #24543f");
   assert.ok(CSS.includes(".dct-cell.dct-agentcell{background:var(--dct-agent)"), "代理格用墨绿，且默认也恒亮");
   assert.equal(/dct-agentcell\[data-on/.exec(CSS), null, "「默认」也保持颜色渲染：不许按 data-on 灭灯");
+});
+
+// ── 右键设默认（v3.9.0） ────────────────────────────────────────────────
+
+test("三格都有右键入口：检索 / 代理 / 对抗，右键先 preventDefault", async () => {
+  const tree = boot().render();
+  await tick();
+  for (const i of [6, 8, 10]) {
+    const cell = tree.children[i];
+    assert.equal(typeof cell.props.onContextMenu, "function", `第 ${i} 格缺 onContextMenu`);
+    let prevented = 0;
+    cell.props.onContextMenu({
+      preventDefault: () => {
+        prevented += 1;
+      },
+      clientX: 200,
+      clientY: 300,
+    });
+    assert.equal(prevented, 1, "右键要吃掉系统菜单");
+  }
+});
+
+test("右键菜单项：检索 关/增量/全量、代理 关/效率/性能、对抗 关/开；勾选=当前默认", () => {
+  const { defaultOptions, currentDefaultId, BUILTIN_DEFAULTS } = boot().mod.__internals;
+  assert.deepEqual(
+    defaultOptions("route").map((o) => o.id),
+    ["off", "high", "max"],
+  );
+  assert.deepEqual(
+    defaultOptions("agent").map((o) => o.id),
+    ["off", "efficiency", "performance"],
+  );
+  assert.deepEqual(
+    defaultOptions("counter").map((o) => o.id),
+    ["off", "on"],
+    "对抗只有关/开，不加分级（2026-10-30 用户口径）",
+  );
+  assert.equal(currentDefaultId("route", BUILTIN_DEFAULTS), "off");
+  assert.equal(currentDefaultId("route", { route: { on: true, level: "max" } }), "max");
+  assert.equal(currentDefaultId("agent", { agent: { on: true, profile: "performance" } }), "performance");
+  assert.equal(currentDefaultId("counter", { counter: true }), "on");
+});
+
+test("默认项 → 宿主 patch：只带变的那一维，别的开关不动", () => {
+  const { defaultPatch, mergeDefaults } = boot().mod.__internals;
+  assert.deepEqual(defaultPatch("route", "max"), { route: { on: true, level: "max" } });
+  assert.deepEqual(defaultPatch("route", "off"), { route: { on: false } });
+  assert.deepEqual(defaultPatch("agent", "performance"), { agent: { on: true, profile: "performance" } });
+  assert.deepEqual(defaultPatch("counter", "on"), { counter: true });
+  const merged = mergeDefaults({ counter: true, route: { on: true, level: "high" } }, defaultPatch("agent", "performance"));
+  assert.deepEqual(merged.agent, { on: true, profile: "performance" });
+  assert.equal(merged.counter, true, "合并不许顺手清掉对抗");
+  assert.equal(merged.route.level, "high", "合并不许顺手改检索档");
+});
+
+test("新会话首屏按默认播种：桥不可达时也用右键设的默认", async () => {
+  const env = boot(
+    {},
+    {
+      failGet: true,
+      local: {
+        "dsh-tier-defaults": JSON.stringify({
+          counter: true,
+          route: { on: true, level: "max" },
+          agent: { on: true, profile: "performance" },
+        }),
+      },
+    },
+  );
+  const tree = env.render("s-brand-new");
+  await tick();
+  assert.equal(tree.children[8].children[0], "全量", "检索默认开·全量");
+  assert.equal(tree.children[10].children[0], "性能", "代理默认开·性能");
+  assert.equal(tree.props["data-counter"], "1", "对抗默认开");
+});
+
+test("默认值归一：坏档退回内置，sameDefaults 认等价", () => {
+  const { normalizeDefaults, sameDefaults, BUILTIN_DEFAULTS } = boot().mod.__internals;
+  assert.deepEqual(normalizeDefaults({ route: { on: true, level: "ultra" } }).route, { on: true, level: "high" });
+  assert.deepEqual(normalizeDefaults({ agent: { on: true, profile: "turbo" } }).agent, {
+    on: true,
+    profile: "efficiency",
+  });
+  assert.equal(sameDefaults(BUILTIN_DEFAULTS, {}), true);
+  assert.equal(sameDefaults(BUILTIN_DEFAULTS, { route: { on: true } }), false);
+});
+
+test("右键菜单坐标：视口内夹取，底部放不下翻到指针上方", () => {
+  const { menuPosition } = boot().mod.__internals;
+  assert.deepEqual(menuPosition({ clientX: 10, clientY: 20 }, { width: 156, height: 148 }), { x: 10, y: 28 });
+  const wide = menuPosition({ clientX: 99999, clientY: 20 }, { width: 156, height: 148 });
+  assert.ok(wide.x <= 1400 - 156 - 8, `右侧越界未夹取：${wide.x}`);
+  const low = menuPosition({ clientX: 40, clientY: 740 }, { width: 156, height: 148 });
+  assert.ok(low.y < 740, `底部未翻转：${low.y}`);
+});
+
+test("样式：右键菜单有固定定位与高层级，不吃三色档位配色", () => {
+  const { CSS } = boot().mod.__internals;
+  assert.ok(CSS.includes(".dct-menu{position:fixed"), "菜单要 fixed 定位");
+  assert.ok(/z-index:2147483/.test(CSS), "菜单层级要压过输入行");
+  assert.ok(CSS.includes(".dct-menu-item"), "菜单项样式");
+  assert.equal(/dct-menu[^{]*background:var\(--dct-/.exec(CSS), null, "菜单不许借用档位变量");
 });

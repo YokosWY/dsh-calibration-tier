@@ -54,6 +54,8 @@
 
 **为什么对抗不做成格**：左边三格表示「强度」（问多深 / 磨几轮），两个开关表示「多做一件事」（多审一遍 / 按计划派子代理）。做成可叠加的开关才能和思考/循环自由组合，也不挤占格位。检索与代理各有自己的维度（「找多宽」「强化到什么程度」），所以各留**一个轮换格、放到末尾**：点一下走一档，既保住独立维度，又不额外占格位（v3.5.0；此前是「开关 + 两档」共四格）。
 
+**右键设默认（v3.9.0）**：「检索」「代理」「对抗」三格右键弹出小菜单，设的是**新会话默认**——检索（关 / 增量 / 全量）、代理（关 / 效率 / 性能）、对抗（关 / 开；对抗只做开关，不分级）。默认值写宿主的 `sessions.default` 条目（`POST /state?session=default`），没单独设过档的会话按它继承，**已单独设过档的会话不受影响**；菜单底部「恢复内置默认」回到 关 / 增量 / 关 / 效率 / 关。桥不可达时先只存本地（`dsh-tier-defaults`），认领实例后自动补写一次。左键行为不变，仍是轮换 / 开关。
+
 **代理是策略开关，不是执行开关**：它不自己派活，只把「该派谁、用哪个模型、隔离到哪一级」写成计划（`clarify_tier` 的 `agent` 字段 + `planId`），执行走 `agent_delegate` 工具（见下）。关掉时 `clarify_tier` 只回 `{on:false}`，不给模型任何建议。
 
 **模型从哪来**：宿主 `llm` 服务能看到全部已注册 provider（含你自配的 API），但没有「谁更强」的元数据，所以 CT 自带一张能力基线（`lib/core.js` 的 `CAPABILITIES`），按族（opus / sonnet / flash / grok …）打领域分，可用 `~/.dsh/storages/calibration-models.json` 覆盖。**自动更新的是「有哪些模型」，不是「谁更强」**；基线过期或出现新族时，计划里会标 `unknown 5 分` 并提示待复核。
@@ -101,7 +103,7 @@
 - **思考强度（v2.3.0）**：档位不只报名字，还给出「怎么想」——歧义点（问不问的判据，严格 2 / 极致 3）、覆盖轴（全面性，3 / 6）、逆向（pre-mortem / 反证 / 反例，1 / 3）；循环模式同档位映射，不再退回 `off`
 - **每轮快照**：一条用户消息 = 一轮（轮号取 `agent.phase.turn`）。开工第一次调工具时，把当时的设置记成本轮快照（`turn{id,mode,level,counter,route}`）；本轮内再点档位条只改「下轮的值」，条尾显示一个循环色小点（`pending`）
 - 下一轮开工自动换用新值；取不到轮 id 时退回实时值（不做轮内保护，但功能不坏）
-- 没单独设置过的对话，继承 `default` 会话（迁移自 0.6 的全局值），再没有就用内置 `think/high`
+- 没单独设置过的对话，继承 `default` 会话（迁移自 0.6 的全局值），再没有就用内置 `think/high`；`default` 条目可用三格的右键菜单改（v3.9.0）
 - 文件：`$DSH_HOME/storages/calibration.json`；每会话只写自己那条，切模式不会丢档位；最多保留 100 个会话（删最旧的非 `default`）
 - **实时同步**：`GET /events?session=…` 只推本会话；同一对话开两个窗口才互通，跨对话互不干扰；普通断线按 `retry: 2000` 自动重连，连接被彻底关掉（`readyState=2`）时客户端按 `CONFIG.reconnectDelay` 自己重建，最多 `CONFIG.maxReconnects` 次
 
@@ -117,13 +119,13 @@ pwsh -File install-profile.ps1 -Uninstall  # 卸载
 脚本做三件事：往 profile 的 `package.json` 加一条 `link:` 依赖、把包名追加进 `dsh.profile.bundles`、
 在 profile 的 `node_modules` 下建链接。装完**完全退出并重开** DSH（关窗口不够，要退出进程）。
 
-验证：输入框工具行、模型选择左边出现一条「常规 / 严格 / 极致 ‖ 循环 对抗 ‖ 本地 默认」的框，默认停在「严格」；点「循环」，前三格变「轻量 / 交付 / 极致」、框转绿；点「对抗」，那颗开关转红且循环模式下也保持红；点末尾的「本地」，应在 本地 → 增量 → 全量 之间轮换（三档都是天蓝）；点最后的「默认」，应在 默认 → 效率 → 性能 之间轮换（三档都是墨绿）。再问模型「现在什么档」，它应能调 `clarify_tier` / `forge_level` 报出同值。
+验证：输入框工具行、模型选择左边出现一条「常规 / 严格 / 极致 ‖ 循环 对抗 ‖ 本地 默认」的框，默认停在「严格」；点「循环」，前三格变「轻量 / 交付 / 极致」、框转绿；点「对抗」，那颗开关转红且循环模式下也保持红；点末尾的「本地」，应在 本地 → 增量 → 全量 之间轮换（三档都是天蓝）；点最后的「默认」，应在 默认 → 效率 → 性能 之间轮换（三档都是墨绿）；在「本地 / 默认 / 对抗」任一格上**右键**，应弹出「检索 · 默认 / 代理 · 默认 / 对抗 · 默认」小菜单，勾选当前默认，选一项后新开的对话按它起步。再问模型「现在什么档」，它应能调 `clarify_tier` / `forge_level` 报出同值。
 
 ## 工作原理
 
 | 层 | 文件 | 职责 |
 |---|---|---|
-| 客户端 | `lib/client.js` | 三档 + 循环/对抗两个可拨控件 + 末尾两个轮换格，注册进 `conversation.input.right`（`order=10`）。**单文件 bundle**，模块加载器只吃一个 factory，不能拆 import |
+| 客户端 | `lib/client.js` | 三档 + 循环/对抗两个可拨控件 + 末尾两个轮换格 + 三格的右键默认菜单（v3.9.0），注册进 `conversation.input.right`（`order=10`）。**单文件 bundle**，模块加载器只吃一个 factory，不能拆 import |
 | 宿主入口 | `lib/index.js` | 装配层：起桥 + 注册工具 + 把 dispose 挂到 `ctx.effect` |
 | 宿主模块 | `lib/core.js` / `lib/state.js` / `lib/bridge.js` / `lib/tools.js` | 常量与文案表 / 状态读写与迁移 / 回环桥 HTTP+SSE / 两个只读工具与轮内快照 |
 | 形态 | `cordis.patch.yml` + `package.json` 的 `dsh.client` | 进 cordis 树，客户端产物编进启动包 |
@@ -189,7 +191,7 @@ npm run doctor -- --main=...   # 再跑一遍确认
 
 ```bash
 npm run build:client  # 分片 lib/client/*.js → 单文件 lib/client.js（改过分片必跑）
-npm test        # node --test，174 项，约 6 秒
+npm test        # node --test，185 项，约 6 秒
 npm run lint    # scripts/check.mjs：lib 下所有模块 + 所有测试逐个 node --check
 npm run verify  # build:client --check + lint + test，本地 CI 就用这条
 ```

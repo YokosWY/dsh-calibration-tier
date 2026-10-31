@@ -199,8 +199,62 @@ test("空会话用内置默认：think/high，GET 不建文件", async () => {
   assert.equal(existsSync(statePath), false);
 });
 
-test("每个对话各用各的：写 A 不影响 B", async () => {
-  await setSession("s-iso-a", "loop", "max");
+// ── 右键设默认（v3.9.0）：写 default 条目，没单独设过档的会话继承 ──────────
+
+test("右键默认：写 session=default 后，没设过档的会话继承（GET 带 defaults 段）", async () => {
+  const res = await post("default", {
+    counter: true,
+    route: { on: true, level: "max" },
+    agent: { on: true, profile: "performance" },
+  });
+  assert.equal(res.status, 200);
+  const fresh = await (await get("s-default-new")).json();
+  assert.equal(fresh.inherited, true, "新会话仍是继承");
+  assert.equal(fresh.route.on, true);
+  assert.equal(fresh.route.level, "max");
+  assert.equal(fresh.agent.on, true);
+  assert.equal(fresh.agent.profile, "performance");
+  assert.equal(fresh.counter, true);
+  assert.deepEqual(fresh.defaults, {
+    counter: true,
+    route: { on: true, level: "max" },
+    agent: { on: true, profile: "performance" },
+  });
+});
+
+test("右键默认不影响已单独设过档的会话", async () => {
+  await setSession("s-own", "think", "off");
+  await post("s-own", { route: { on: false }, agent: { on: false }, counter: false });
+  // 再把默认改成另一套：已设过档的会话不该被带走
+  await post("default", {
+    counter: true,
+    route: { on: true, level: "max" },
+    agent: { on: true, profile: "performance" },
+  });
+  const own = await (await get("s-own")).json();
+  assert.equal(own.route.on, false, "自己设过的会话不被默认覆盖");
+  assert.equal(own.agent.on, false);
+  assert.equal(own.counter, false);
+  assert.equal(own.inherited, undefined, "自己设过的会话不再继承默认");
+});
+
+test("恢复内置默认：写回 关 / 增量 / 关 / 效率 / 关", async () => {
+  const res = await post("default", {
+    counter: false,
+    route: { on: false, level: "high" },
+    agent: { on: false, profile: "efficiency" },
+  });
+  assert.equal(res.status, 200);
+  const s = await (await get("s-default-new")).json();
+  assert.deepEqual(s.defaults, {
+    counter: false,
+    route: { on: false, level: "high" },
+    agent: { on: false, profile: "efficiency" },
+  });
+  assert.equal(s.route.on, false, "新会话跟着回内置默认");
+});
+
+test("每个对话各用各的：写 A 不影响 B", async () => {  await setSession("s-iso-a", "loop", "max");
   await setSession("s-iso-b", "think", "off");
   const a = await (await get("s-iso-a")).json();
   const b = await (await get("s-iso-b")).json();
@@ -601,7 +655,9 @@ test("verify_claims 工具：文件命中、锚点不匹配、越界路径被拒
   const out = await tool.execute({
     claims: [
       { text: pkg.version, source: { kind: "file", path: "package.json", line: 3 } },
-      { text: "9.9.9", source: { kind: "file", path: "package.json", line: 3 } },
+      // 负数对照别用「9.9.9」这类短数字：v3.9.0 起 version 行自己就含 9，
+      // 锚点按单个数字切分会被误判成命中。用一串不可能出现的数字。
+      { text: "9876543210", source: { kind: "file", path: "package.json", line: 3 } },
       { text: "x", source: { kind: "file", path: "../../outside.txt" } },
       { text: "https://docs.python.org/3/", source: { kind: "url", url: "https://docs.python.org/3/" } },
     ],
@@ -613,4 +669,25 @@ test("verify_claims 工具：文件命中、锚点不匹配、越界路径被拒
   assert.equal(out.results[2].reasons[0], "outside-workspace");
   assert.equal(out.results[3].level, "url-L1");
   assert.ok(out.text.includes("已核"), out.text);
+});
+
+test("同档位重复调用回精简版：状态字段不变，档位一变回全文", async () => {
+  await setSession("s-repeat", "think", "high");
+  const first = await callTool("clarify_tier", "s-repeat", 1);
+  const second = await callTool("clarify_tier", "s-repeat", 2);
+  assert.equal(first.sameAsLast, undefined, "首次必须是全文");
+  assert.equal(second.sameAsLast, true, "第二次要标 sameAsLast");
+  assert.ok(second.text.length * 2 < first.text.length,
+    `精简版应显著更短：完整 ${first.text.length} / 精简 ${second.text.length}`);
+  assert.match(second.text, /档位未变/);
+  // 状态语义不受影响：结构化字段照旧
+  assert.equal(second.tier, first.tier);
+  assert.equal(second.mode, first.mode);
+  assert.equal(second.counter.enabled, first.counter.enabled);
+  assert.deepEqual(second.contract.steps, first.contract.steps);
+  // 档位一变（用户推动滑条）就恢复全文
+  await setSession("s-repeat", "think", "max");
+  const third = await callTool("clarify_tier", "s-repeat", 3);
+  assert.equal(third.sameAsLast, undefined, "档位变化必须回全文");
+  assert.ok(third.text.length > second.text.length * 2, "恢复后应重新变长");
 });
