@@ -3,6 +3,12 @@
 > GitHub Release 直接取用。更早版本（0.1.0–1.1.1）的逐条记录见 `CHANGELOG.md`。
 > 写法约定：只写机制、范围、限制、数字；不写形容词与口号。
 
+## v3.10.1 — 首次发到 npm
+
+**改动**：包名 `dsh-calibration-tier` 首次发布，`npm i dsh-calibration-tier` 可装；GitHub Actions 走 Trusted Publisher，之后免长期 token 发布。
+
+**同时带上**：3.10.0 的重复调用精简行里，检索档位直接取 `route.level`、代理取不存在的 `label` 字段，曾打出「检索 high｜代理 undefined」，改走 `LABELS` 中文映射；`clarify-needs` / `counter-review` 两个子技能改为只能显式调用。
+
 ## v3.10.0 — 重复调用不再重发档位全文
 
 **问题**：`clarify_tier` 每次调用都回整段固定文本（步骤、回执模板、派活说明），一轮里调两三次就是上千 token。

@@ -1,6 +1,7 @@
 ---
 name: counter-review
 description: "循环里的对抗审：把本轮改动按六轴场景逐个提反例拷问，每条须给触发条件/后果/检查方法，三态收口（接受/驳回/转边界）；由 forge_level 的 counter 字段开关，只审本轮改动。"
+disable-model-invocation: true
 ---
 
 # 对抗审 · counter-review（v0.1，已由 counter-audit v2 接替）

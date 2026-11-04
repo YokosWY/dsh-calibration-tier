@@ -1,5 +1,12 @@
 # 变更记录
 
+## 3.10.1 — 2026-11-04
+- **首次发到 npm**：`npm i dsh-calibration-tier` 可装；配好 Trusted Publisher 后由 CI 免 token 发布。
+- **修精简行文案**：同档位重复调用那一行里，检索档位直接取 `route.level`、代理取 `AGENT_PLAN[...].label`，
+  前者打出英文、后者条目没有 `label` 字段 → 曾出现「检索 high｜代理 undefined」；改走 `LABELS` 中文映射，
+  断言同时锚中文标签，总数 185 不变。
+- **两个子技能改成只能显式调用**：`clarify-needs` / `counter-review` 加 `disable-model-invocation: true`。
+
 ## 3.10.0 — 2026-10-31
 - **同档位重复调用回精简版**：`clarify_tier` 按会话记住上次发过的档位签名（mode / level / 对抗 / 检索 / 代理），
   签名不变时只回一行「档位未变：…」，步骤与回执模板不再重复；档位或任一开关变化立即恢复全文。

@@ -1,6 +1,7 @@
 ---
 name: clarify-needs
 description: "需求锚定三档（off / high / max）：关闭 / 严格（默认）/ 极致；按档位分配思考强度（歧义点 / 覆盖轴 / 逆向），循环模式同档位映射。触发：帮我/整理/迁移/清理/优化/装/改/删/grill/拷问/压测想法。"
+disable-model-invocation: true
 ---
 
 # 需求锚定与拷问（v5.0）
