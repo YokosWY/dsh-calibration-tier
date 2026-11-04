@@ -673,6 +673,8 @@ test("verify_claims 工具：文件命中、锚点不匹配、越界路径被拒
 
 test("同档位重复调用回精简版：状态字段不变，档位一变回全文", async () => {
   await setSession("s-repeat", "think", "high");
+  // 精简行要写中文标签：先把检索/代理都打开，否则走「关」分支，label 缺失看不出来
+  await post("s-repeat", { route: { on: true, level: "max" }, agent: { on: true, profile: "performance" } });
   const first = await callTool("clarify_tier", "s-repeat", 1);
   const second = await callTool("clarify_tier", "s-repeat", 2);
   assert.equal(first.sameAsLast, undefined, "首次必须是全文");
@@ -680,6 +682,10 @@ test("同档位重复调用回精简版：状态字段不变，档位一变回�
   assert.ok(second.text.length * 2 < first.text.length,
     `精简版应显著更短：完整 ${first.text.length} / 精简 ${second.text.length}`);
   assert.match(second.text, /档位未变/);
+  // 标签必须是中文、不得漏字段（3.10.0 曾打出「检索 high｜代理 undefined」）
+  assert.ok(second.text.includes("检索 全量"), second.text);
+  assert.ok(second.text.includes("代理 性能"), second.text);
+  assert.ok(!/undefined/.test(second.text), "精简行不得出现 undefined");
   // 状态语义不受影响：结构化字段照旧
   assert.equal(second.tier, first.tier);
   assert.equal(second.mode, first.mode);
