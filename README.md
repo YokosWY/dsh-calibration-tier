@@ -111,12 +111,18 @@
 
 需要：DSH Desktop / DSH NEXT（带 Web 客户端插件支持的版本）。
 
+两种装法，选一种：
+
 ```powershell
+# ① 从 npm 装（插件市场里的安装命令就是这条）
+dsh plugin --profile desktop add dsh-calibration-tier
+
+# ② 从本仓库装（要改源码时用）
 pwsh -File install-profile.ps1             # 装进 desktop profile
 pwsh -File install-profile.ps1 -Uninstall  # 卸载
 ```
 
-脚本做三件事：往 profile 的 `package.json` 加一条 `link:` 依赖、把包名追加进 `dsh.profile.bundles`、
+①由 DSH 按 npm 版本装，装完**完全退出并重开** DSH。② 的脚本做三件事：往 profile 的 `package.json` 加一条 `link:` 依赖、把包名追加进 `dsh.profile.bundles`、
 在 profile 的 `node_modules` 下建链接。装完**完全退出并重开** DSH（关窗口不够，要退出进程）。
 
 验证：输入框工具行、模型选择左边出现一条「常规 / 严格 / 极致 ‖ 循环 对抗 ‖ 本地 默认」的框，默认停在「严格」；点「循环」，前三格变「轻量 / 交付 / 极致」、框转绿；点「对抗」，那颗开关转红且循环模式下也保持红；点末尾的「本地」，应在 本地 → 增量 → 全量 之间轮换（三档都是天蓝）；点最后的「默认」，应在 默认 → 效率 → 性能 之间轮换（三档都是墨绿）；在「本地 / 默认 / 对抗」任一格上**右键**，应弹出「检索 · 默认 / 代理 · 默认 / 对抗 · 默认」小菜单，勾选当前默认，选一项后新开的对话按它起步。再问模型「现在什么档」，它应能调 `clarify_tier` / `forge_level` 报出同值。
