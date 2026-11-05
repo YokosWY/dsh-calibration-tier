@@ -173,6 +173,7 @@ clarify-needs/
 
 | 版本 | 内容 |
 |---|---|
+| **v5.2** | 补齐 `grilling` 剩余四条：事实不阻塞（§5.1）/ 设计树可见（§5.2）/ 边谈边落档 ADR·术语表（§5.3）/ 清零检查（§5.4）；删除 `grill-me`、`grill-with-docs`、`grilling` 三个入口 |
 | **v5.0** | 三档 **off / high / max**（关闭 / 严格 / 极致）：删掉 low「常规」（滑条拨不到），严格吸收原常规的复述/确认点/假设清单，默认档 = high；打分映射 `0=off / 1–2=high / ≥3=max` |
 | v4.0 | 四档 **off / low / high / max**（关闭 / 常规 / 严格 / 极限）：删除原 low「方向」，其余各降一级；默认档 = low；旧状态自动迁移（high→low、max→high、ultra→max） |
 | v3.0 | 五档 off / low / high / max / ultra；off 为技能退出位；模式 M1–M3 并入档位 |
